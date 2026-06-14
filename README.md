@@ -14,7 +14,9 @@ short_description: Multi-Agent LangGraph pipeline for DevOps incident triage
 An enterprise-grade, AI-powered incident triage platform for SREs and DevOps teams.
 Upload raw operational logs and a **5-agent LangGraph pipeline** automatically triages the incident,
 plans remediation using historical playbooks (RAG), synthesizes an executable runbook, and — after
-human approval — creates a real Jira ticket and sends a Slack notification.
+human approval — creates a real Jira ticket and sends a Slack Block Kit notification with the ticket link.
+
+**Live Demo:** https://sandeepg06-devops-incident-suite.hf.space
 
 ---
 
@@ -34,13 +36,14 @@ human approval — creates a real Jira ticket and sends a Slack notification.
 - [Environment Variables](#environment-variables)
 - [Sample Log Files](#sample-log-files)
 - [API Reference](#api-reference)
+- [Deployment](#deployment)
 
 ---
 
 ## Architecture Overview
 
 ```
-Upload Logs
+Upload Logs (.log / .txt / .json)
      │
      ▼
 ┌─────────────────────────────────────────────────────────────┐
@@ -52,20 +55,29 @@ Upload Logs
 │  │ Classifier   │    │ Agent (RAG)  │    │ Synthesizer  │  │
 │  └──────────────┘    └──────────────┘    └──────────────┘  │
 │         │                  │                    │           │
-│    Severity=1?        ChromaDB Query       Runbook MD       │
+│    Severity=1?        ChromaDB RAG         Runbook MD       │
 │    (Benign) ──▶ END        │                    │           │
 │                       Playbooks                 ▼           │
 │                                        ┌──────────────────┐ │
 │                                        │  👤 HITL Gate    │ │
 │                                        │  Human Approval  │ │
+│                                        │  (threading.Event│ │
+│                                        │   pause/resume)  │ │
 │                                        └──────────────────┘ │
 │                                          Approve ▼  Reject  │
-│                                   ┌──────────┐  ┌────────┐  │
-│                                   │ Agent 4  │  │Agent 5 │  │
-│                                   │  Jira    │  │ Slack  │  │
-│                                   └──────────┘  └────────┘  │
-│                                          └──────┬───────┘   │
-│                                               END            │
+│                                   ┌──────────┐              │
+│                                   │ Agent 4  │              │
+│                                   │  Jira    │              │
+│                                   └──────────┘              │
+│                                        │                    │
+│                                   ┌──────────┐              │
+│                                   │ Agent 5  │              │
+│                                   │  Slack   │              │
+│                                   │(+Jira    │              │
+│                                   │ details) │              │
+│                                   └──────────┘              │
+│                                        │                    │
+│                                       END                   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -167,28 +179,17 @@ rollback_steps: List[RunbookStep]  # how to undo each major action
 markdown: str                      # full runbook formatted as Markdown
 ```
 
-#### Example step
-```python
-RunbookStep(
-    order=3,
-    description="Restart pgBouncer to apply new connection pool config",
-    command="sudo systemctl restart pgbouncer && sudo systemctl status pgbouncer",
-    is_destructive=True,
-    warning="This will drop all active connections momentarily"
-)
-```
-
 ---
 
 ### HITL Approval Gate
 
-**Implemented in:** `backend/graph/pipeline.py` via `interrupt_before=["hitl_approval"]`
+**Implemented in:** `backend/graph/pipeline.py` using `threading.Event` pause/resume
 
 #### What it does
-- The LangGraph pipeline **automatically pauses** after Agent 3 completes
-- No external systems (Jira, Slack) are triggered until a human explicitly approves
-- The Streamlit UI shows a prominent **Approve & Deploy / Reject** card
-- The runbook is fully visible for review before the decision
+- After Agent 3 completes the pipeline **blocks** in `node_hitl_gate` using a `threading.Event`
+- The pipeline thread waits (up to 1 hour) until the API approve endpoint signals the event
+- The Streamlit UI shows a prominent **Approve & Deploy / Reject** form card
+- Full runbook is visible for review before the decision is made
 
 #### Why this matters
 Agents 4 and 5 create real tickets and send real notifications. The HITL gate ensures:
@@ -197,20 +198,20 @@ Agents 4 and 5 create real tickets and send real notifications. The HITL gate en
 - False positives don't spam your team's Slack channel or Jira board
 
 #### Decisions
-| Decision  | Result                                              |
-|-----------|-----------------------------------------------------|
-| ✅ Approve | Resumes pipeline → runs Agent 4 and Agent 5 in sequence |
-| ❌ Reject  | Pipeline terminates — no external systems triggered |
+| Decision   | Result                                                    |
+|------------|-----------------------------------------------------------|
+| ✅ Approve  | Signals threading.Event → Agent 4 (Jira) → Agent 5 (Slack) |
+| ❌ Reject   | Pipeline terminates — no external systems triggered       |
 
 ---
 
 ### Agent 4 · Jira Ticketing Agent
 
 **File:** `backend/agents/jira_agent.py`
-**Role:** The "bureaucrat" — creates a structured incident ticket in Jira.
+**Role:** The "bureaucrat" — creates a structured incident ticket in Jira via REST API.
 
 #### What it does
-- Receives the `LogAnalysisResult` + `ActionableRunbook`
+- Receives `LogAnalysisResult` + `ActionableRunbook`
 - Uses the LLM to format a proper Jira issue payload (summary, description, priority, labels, story points)
 - Maps incident severity to Jira priority:
 
@@ -225,11 +226,11 @@ Agents 4 and 5 create real tickets and send real notifications. The HITL gate en
 - Makes a **real REST API call** to `POST /rest/api/3/issue` on your Atlassian site
 - Falls back to a mock URL if Jira credentials are not configured
 
-#### Real Jira setup required
+#### Required env vars
 ```bash
 JIRA_BASE_URL=https://your-site.atlassian.net
 JIRA_EMAIL=your-email@example.com
-JIRA_API_TOKEN=your-api-token       # from id.atlassian.com/manage-profile/security/api-tokens
+JIRA_API_TOKEN=your-api-token
 JIRA_PROJECT_KEY=OPS
 ```
 
@@ -241,7 +242,7 @@ priority: str         # Highest / High / Medium / Low / Lowest
 epic: str             # epic name
 story_points: int     # 1–13
 labels: List[str]     # e.g. ["incident", "kubernetes", "auto-generated"]
-ticket_url: str       # e.g. https://your-site.atlassian.net/browse/OPS-A3F1
+ticket_url: str       # e.g. https://your-site.atlassian.net/browse/JIRA-3
 ```
 
 ---
@@ -249,44 +250,49 @@ ticket_url: str       # e.g. https://your-site.atlassian.net/browse/OPS-A3F1
 ### Agent 5 · Slack Notification Agent
 
 **File:** `backend/agents/notification_agent.py`
-**Role:** The "dispatcher" — sends a scannable incident alert to your Slack channel.
+**Role:** The "dispatcher" — sends a rich Block Kit incident alert including the Jira ticket link.
 
 #### What it does
-- Receives the `LogAnalysisResult` + `ActionableRunbook`
-- Uses the LLM to generate **Slack Block Kit JSON** — structured blocks with:
-  - Header with severity emoji (🔴 CRITICAL / 🟠 HIGH / 🟡 MEDIUM)
-  - Incident summary (2–3 sentences)
-  - Fields: Severity, Affected Services, ETA to resolve
-- Posts to the configured Slack channel via webhook
-- Returns the thread URL shown in the Action Hub
+- Receives `LogAnalysisResult` + `ActionableRunbook` + `JiraPayload` (from Agent 4)
+- Uses the LLM to generate **Slack Block Kit JSON** with:
+  - Header: severity emoji + incident title
+  - Summary: 2–3 sentence root cause
+  - Fields: Severity, Affected Services, ETA, Steps
+  - Jira section: clickable ticket link, priority, summary, labels
+  - **"Open Jira Ticket"** button for one-click navigation
+- Posts to configured Slack channel via Incoming Webhook
+- Falls back to locally-built blocks if LLM fails
 
-#### Slack setup (optional)
+#### Required env vars
 ```bash
-SLACK_CHANNEL=#incidents
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../xxx
+SLACK_CHANNEL=#devops-ai-incidents
 ```
 
 #### Output schema — `SlackNotification`
 ```python
-channel: str          # e.g. "#incidents"
-blocks: List[dict]    # Slack Block Kit payload
-thread_url: str       # link to the posted thread
+channel: str          # e.g. "#devops-ai-incidents"
+blocks: List[dict]    # Slack Block Kit payload including Jira details
+thread_url: str       # webhook URL confirming successful post
 ```
 
 ---
 
 ## Tech Stack
 
-| Layer         | Technology                                      |
-|---------------|-------------------------------------------------|
-| Orchestration | LangGraph (StateGraph + MemorySaver checkpoint) |
-| LLM           | OpenRouter API (default: `claude-sonnet-4-5`)   |
-| LLM Framework | LangChain (`langchain-openai`, `langchain-core`) |
-| Vector DB     | ChromaDB (local persistent)                     |
-| Embeddings    | `sentence-transformers/all-MiniLM-L6-v2` (local)|
-| Backend API   | FastAPI + Uvicorn (SSE streaming)               |
-| Frontend UI   | Streamlit                                       |
-| Validation    | Pydantic v2 (all agent I/O schemas)             |
-| Jira          | Atlassian REST API v3                           |
+| Layer         | Technology                                          |
+|---------------|-----------------------------------------------------|
+| Orchestration | LangGraph (StateGraph + threading.Event HITL)       |
+| LLM           | OpenRouter API (default: `anthropic/claude-sonnet-4-5`) |
+| LLM Framework | LangChain (`langchain-openai`, `langchain-core`)    |
+| Vector DB     | ChromaDB (local persistent)                         |
+| Embeddings    | `sentence-transformers/all-MiniLM-L6-v2` (local)   |
+| Backend API   | FastAPI + Uvicorn (SSE streaming)                   |
+| Frontend UI   | Streamlit (purple-indigo gradient dashboard)        |
+| Validation    | Pydantic v2 (all agent I/O schemas)                 |
+| Jira          | Atlassian REST API v3                               |
+| Slack         | Incoming Webhooks + Block Kit                       |
+| Deployment    | Docker + Supervisord (Hugging Face Spaces)          |
 
 ---
 
@@ -298,17 +304,17 @@ devops-incident-suite/
 ├── backend/
 │   ├── agents/
 │   │   ├── llm.py                    # Shared OpenRouter LLM init
-│   │   ├── log_classifier.py         # Agent 1
-│   │   ├── remediation_agent.py      # Agent 2 (RAG)
-│   │   ├── cookbook_synthesizer.py   # Agent 3
-│   │   ├── jira_agent.py             # Agent 4
-│   │   └── notification_agent.py     # Agent 5
+│   │   ├── log_classifier.py         # Agent 1 — few-shot anomaly detection
+│   │   ├── remediation_agent.py      # Agent 2 — RAG-powered remediation
+│   │   ├── cookbook_synthesizer.py   # Agent 3 — constraint-based runbook
+│   │   ├── jira_agent.py             # Agent 4 — real Jira REST API
+│   │   └── notification_agent.py     # Agent 5 — Slack Block Kit + Jira details
 │   │
 │   ├── graph/
-│   │   └── pipeline.py               # LangGraph state, nodes, edges, HITL interrupt
+│   │   └── pipeline.py               # LangGraph nodes, edges, threading.Event HITL
 │   │
 │   ├── vectorstore/
-│   │   ├── store.py                  # ChromaDB init, retrieval
+│   │   ├── store.py                  # ChromaDB init + semantic retrieval
 │   │   └── seed_data.py              # 7 historical playbooks + SOPs
 │   │
 │   ├── api/
@@ -316,17 +322,20 @@ devops-incident-suite/
 │   │
 │   └── schemas.py                    # All Pydantic models (AgentState, etc.)
 │
-├── streamlit_app.py                  # Full Streamlit UI
+├── streamlit_app.py                  # Full Streamlit UI (purple dashboard)
+├── Dockerfile                        # Docker image for HF Spaces deployment
+├── supervisord.conf                  # Runs FastAPI (port 8000) + Streamlit (port 7860)
 ├── sample_logs/
 │   ├── scenario1_k8s_oom_db_cascade.log
 │   ├── scenario2_kafka_lag_redis_failure.log
 │   └── scenario3_nodejs_memleak_disk_pressure.log
 │
 ├── seed_vectorstore.py               # Run once to populate ChromaDB
-├── sample_logs.py                    # Sample log content for testing
+├── test_jira.py                      # Validate Jira credentials
+├── test_slack.py                     # Validate Slack webhook
 ├── requirements.txt
-├── .env.example
-└── setup.sh
+├── .env.example                      # Config template (no real secrets)
+└── setup.sh                          # One-command local setup
 ```
 
 ---
@@ -334,8 +343,9 @@ devops-incident-suite/
 ## Quick Start
 
 ```bash
-# 1. Clone and enter the project
-cd devops-incident-suite
+# 1. Clone the repo
+git clone https://github.com/sandeep-git/C7-G10-multiagent-devops-AI
+cd C7-G10-multiagent-devops-AI
 
 # 2. Create virtual environment
 python3 -m venv .venv && source .venv/bin/activate
@@ -345,15 +355,19 @@ pip install -r requirements.txt
 
 # 4. Configure environment
 cp .env.example .env
-# Edit .env — add your OPENROUTER_API_KEY and Jira credentials
+# Edit .env — add your OPENROUTER_API_KEY (required) + Jira + Slack (optional)
 
 # 5. Seed the vector store (run once)
 python seed_vectorstore.py
 
-# 6. Start the backend (Terminal 1)
+# 6. (Optional) Test Jira + Slack connections
+python test_jira.py
+python test_slack.py
+
+# 7. Start the backend (Terminal 1)
 uvicorn backend.api:app --port 8000 --reload
 
-# 7. Start the UI (Terminal 2)
+# 8. Start the UI (Terminal 2)
 streamlit run streamlit_app.py --server.port 8501
 ```
 
@@ -363,18 +377,19 @@ Open **http://localhost:8501** in your browser.
 
 ## Environment Variables
 
-| Variable              | Required | Description                                               |
-|-----------------------|----------|-----------------------------------------------------------|
-| `OPENROUTER_API_KEY`  | ✅ Yes   | API key from openrouter.ai                                |
-| `OPENROUTER_MODEL`    | No       | Model ID (default: `anthropic/claude-sonnet-4-5`)         |
-| `OPENROUTER_SITE_URL` | No       | Your app URL (sent as HTTP-Referer to OpenRouter)         |
-| `CHROMA_PATH`         | No       | Path for ChromaDB storage (default: `./chroma_db`)        |
-| `JIRA_BASE_URL`       | No       | e.g. `https://yoursite.atlassian.net`                     |
-| `JIRA_EMAIL`          | No       | Atlassian account email                                   |
-| `JIRA_API_TOKEN`      | No       | From `id.atlassian.com/manage-profile/security/api-tokens`|
-| `JIRA_PROJECT_KEY`    | No       | Short project key e.g. `OPS` (default: `OPS`)             |
-| `SLACK_CHANNEL`       | No       | e.g. `#incidents` (default: `#incidents`)                 |
-| `BACKEND_URL`         | No       | FastAPI URL for Streamlit (default: `http://localhost:8000`)|
+| Variable              | Required | Description                                                  |
+|-----------------------|----------|--------------------------------------------------------------|
+| `OPENROUTER_API_KEY`  | ✅ Yes   | API key from openrouter.ai/keys                              |
+| `OPENROUTER_MODEL`    | No       | Model ID (default: `anthropic/claude-sonnet-4-5`)            |
+| `OPENROUTER_SITE_URL` | No       | Your app URL sent as HTTP-Referer to OpenRouter              |
+| `CHROMA_PATH`         | No       | Path for ChromaDB storage (default: `./chroma_db`)           |
+| `JIRA_BASE_URL`       | No       | e.g. `https://yoursite.atlassian.net`                        |
+| `JIRA_EMAIL`          | No       | Atlassian account email                                      |
+| `JIRA_API_TOKEN`      | No       | From `id.atlassian.com/manage-profile/security/api-tokens`   |
+| `JIRA_PROJECT_KEY`    | No       | Short project key e.g. `JIRA` or `OPS`                      |
+| `SLACK_WEBHOOK_URL`   | No       | From api.slack.com/apps → Incoming Webhooks                  |
+| `SLACK_CHANNEL`       | No       | Channel to post to e.g. `#devops-ai-incidents`               |
+| `BACKEND_URL`         | No       | FastAPI URL for Streamlit (default: `http://localhost:8000`) |
 
 ---
 
@@ -382,30 +397,56 @@ Open **http://localhost:8501** in your browser.
 
 Three ready-to-upload scenarios in `sample_logs/`:
 
-| File                                        | Scenario                                        | Expected Severity |
-|---------------------------------------------|-------------------------------------------------|-------------------|
-| `scenario1_k8s_oom_db_cascade.log`          | Kubernetes OOMKilled → DB connection cascade    | 🔴 CRITICAL (5)   |
-| `scenario2_kafka_lag_redis_failure.log`     | Kafka consumer lag + Redis auth failure         | 🔴 CRITICAL (5)   |
-| `scenario3_nodejs_memleak_disk_pressure.log`| Node.js memory leak + K8s disk pressure         | 🔴 CRITICAL (5)   |
+| File                                         | Scenario                                     | Expected Severity |
+|----------------------------------------------|----------------------------------------------|-------------------|
+| `scenario1_k8s_oom_db_cascade.log`           | Kubernetes OOMKilled → DB connection cascade | 🔴 CRITICAL (5)   |
+| `scenario2_kafka_lag_redis_failure.log`      | Kafka consumer lag + Redis auth failure      | 🔴 CRITICAL (5)   |
+| `scenario3_nodejs_memleak_disk_pressure.log` | Node.js memory leak + K8s disk pressure      | 🔴 CRITICAL (5)   |
 
 ---
 
 ## API Reference
 
-| Method | Endpoint                        | Description                              |
-|--------|---------------------------------|------------------------------------------|
-| POST   | `/api/analyze`                  | Start pipeline with pasted logs (JSON)   |
-| POST   | `/api/analyze/upload`           | Start pipeline with uploaded file        |
-| GET    | `/api/runs/{run_id}`            | Get current state of a run               |
-| GET    | `/api/runs/{run_id}/stream`     | SSE stream of live state updates         |
-| POST   | `/api/runs/{run_id}/approve`    | Submit HITL decision (`approved`/`rejected`) |
-| GET    | `/api/health`                   | Health check                             |
+| Method | Endpoint                     | Description                                   |
+|--------|------------------------------|-----------------------------------------------|
+| POST   | `/api/analyze`               | Start pipeline with pasted logs (JSON body)   |
+| POST   | `/api/analyze/upload`        | Start pipeline with uploaded log file         |
+| GET    | `/api/runs/{run_id}`         | Get current state of a run                    |
+| GET    | `/api/runs/{run_id}/stream`  | SSE stream of live state updates              |
+| POST   | `/api/runs/{run_id}/approve` | Submit HITL decision (`approved`/`rejected`)  |
+| GET    | `/api/health`                | Health check                                  |
+
+---
+
+## Deployment
+
+### Hugging Face Spaces (Docker)
+
+The app is deployed at: **https://sandeepg06-devops-incident-suite.hf.space**
+
+The `Dockerfile` builds a single image running both services via `supervisord`:
+- **FastAPI** on port `8000` (internal)
+- **Streamlit** on port `7860` (public — HF Spaces default)
+
+Add your secrets in **Space Settings → Variables and Secrets**:
+```
+OPENROUTER_API_KEY, JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN,
+JIRA_PROJECT_KEY, SLACK_WEBHOOK_URL, SLACK_CHANNEL
+```
+
+### Push updates
+```bash
+git add .
+git commit -m "your message"
+git push hf main      # deploys to HF Spaces
+git push github main  # updates GitHub repo
+```
 
 ---
 
 ## How the State Flows
 
-Every piece of data between agents is a typed Pydantic model stored in `AgentState`:
+Every piece of data between agents is a typed Pydantic model stored in `AgentState` (in-memory dict):
 
 ```
 raw_logs (str)
@@ -413,17 +454,22 @@ raw_logs (str)
     ▼ Agent 1
 log_analysis (LogAnalysisResult)
     │
-    ▼ Agent 2
+    ▼ Agent 2  ←── ChromaDB RAG retrieval
 remediation_strategy (RemediationStrategy)
     │
     ▼ Agent 3
 runbook (ActionableRunbook)
     │
-    ▼ HITL Gate → approval_status = "approved" | "rejected"
+    ▼ HITL Gate (threading.Event blocks here)
+    │  approval_status = "approved" | "rejected"
     │
-    ├──▶ Agent 4 → jira_result (JiraPayload) → external_links["jira"]
+    ▼ Agent 4
+jira_result (JiraPayload)  →  external_links["jira"]
     │
-    └──▶ Agent 5 → slack_result (SlackNotification) → external_links["slack"]
+    ▼ Agent 5  ←── receives jira_result for Slack Block Kit
+slack_result (SlackNotification)  →  external_links["slack"]
+    │
+   END
 ```
 
 All agent-to-agent communication is **enforced via Pydantic schemas** — no raw text is passed between agents, preventing hallucination bleed-through.
