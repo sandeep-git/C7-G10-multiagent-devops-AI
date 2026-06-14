@@ -231,6 +231,19 @@ if not st.session_state.run_id:
     <div class="card">
         <p class="card-title">🚨 DevOps Incident Analysis Suite</p>
         <p class="card-sub">Upload your log file and get AI-powered insights</p>
+        <p style="margin:0;font-size:13px">
+            🌐 Live App:&nbsp;
+            <a href="https://sandeepg06-devops-incident-suite.hf.space" target="_blank"
+               style="color:#6c63ff;font-weight:600;text-decoration:none">
+               sandeepg06-devops-incident-suite.hf.space
+            </a>
+            &nbsp;·&nbsp;
+            📦 GitHub:&nbsp;
+            <a href="https://github.com/sandeep-git/C7-G10-multiagent-devops-AI" target="_blank"
+               style="color:#6c63ff;font-weight:600;text-decoration:none">
+               C7-G10-multiagent-devops-AI
+            </a>
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -300,6 +313,16 @@ with top_l:
     <div style="background:white;border-radius:16px;padding:18px 24px;box-shadow:0 8px 30px rgba(0,0,0,.15);margin-bottom:20px">
         <span style="font-size:22px;font-weight:700;color:#1a1a2e">🚨 DevOps Incident Analysis Suite</span><br>
         <span style="font-size:13px;color:#6b7280">Multi-Agent Pipeline · OpenRouter · ChromaDB RAG</span>
+        &nbsp;&nbsp;
+        <a href="https://sandeepg06-devops-incident-suite.hf.space" target="_blank"
+           style="font-size:12px;color:#6c63ff;font-weight:600;text-decoration:none">
+           🌐 Live on HF Spaces
+        </a>
+        &nbsp;·&nbsp;
+        <a href="https://github.com/sandeep-git/C7-G10-multiagent-devops-AI" target="_blank"
+           style="font-size:12px;color:#6c63ff;font-weight:600;text-decoration:none">
+           📦 GitHub
+        </a>
     </div>
     """, unsafe_allow_html=True)
 with top_r:
