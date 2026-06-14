@@ -1,0 +1,17 @@
+2024-06-13T08:00:01Z INFO  order-service [main] Starting on port 8080, heap=512Mi
+2024-06-13T08:12:44Z WARN  order-service [memory] Heap usage at 78% (400Mi/512Mi)
+2024-06-13T08:15:22Z WARN  order-service [memory] Heap usage at 92% (471Mi/512Mi)
+2024-06-13T08:17:05Z ERROR order-service [gc] GC overhead limit exceeded - full GC running every 2s
+2024-06-13T08:17:31Z ERROR order-service [gc] java.lang.OutOfMemoryError: Java heap space
+    at com.app.cache.OrderCache.putAll(OrderCache.java:214)
+    at com.app.service.OrderService.syncOrders(OrderService.java:88)
+2024-06-13T08:17:32Z FATAL kubernetes [kubelet] Container order-service OOMKilled (exit code 137)
+2024-06-13T08:17:33Z INFO  kubernetes [kubelet] Restarting container order-service (restart #4)
+2024-06-13T08:17:45Z ERROR postgres [conn] FATAL: remaining connection slots reserved for superusers
+2024-06-13T08:17:46Z ERROR order-service [db] Unable to acquire connection from pool after 30000ms timeout
+2024-06-13T08:17:46Z ERROR api-gateway [req-8821] 503 Service Unavailable - order-service not ready
+2024-06-13T08:17:47Z ERROR api-gateway [req-8822] 503 Service Unavailable - order-service not ready
+2024-06-13T08:18:00Z WARN  kubernetes [hpa] HPA scaled order-service from 2 to 5 replicas
+2024-06-13T08:18:05Z ERROR prometheus [alert] PodCrashLoopBackOff: order-service restart count=4 threshold=3
+2024-06-13T08:18:10Z ERROR prometheus [alert] DatabaseConnectionPoolExhausted: active=100 max=100
+2024-06-13T08:18:15Z WARN  pgbouncer [pool] max_client_conn=100 reached, queuing connections

@@ -1,0 +1,15 @@
+2024-06-13T14:00:00Z INFO  payment-processor [main] Consumer group started, topic=payments partitions=12
+2024-06-13T14:05:33Z WARN  payment-processor [kafka] Consumer lag on partition-3: 12000 messages
+2024-06-13T14:08:11Z WARN  payment-processor [kafka] Consumer lag on partition-3: 48000 messages
+2024-06-13T14:09:55Z ERROR redis [conn] NOAUTH Authentication required - connection pool misconfigured
+2024-06-13T14:09:55Z ERROR payment-processor [cache] Redis connection refused: 127.0.0.1:6379
+2024-06-13T14:09:56Z ERROR payment-processor [cache] Fallback to DB for session lookup - latency 850ms
+2024-06-13T14:10:01Z WARN  payment-processor [kafka] Consumer lag on partition-3: 120000 messages
+2024-06-13T14:10:01Z WARN  payment-processor [kafka] Consumer lag on partition-5: 95000 messages
+2024-06-13T14:10:15Z ERROR payment-processor [proc] Processing timeout after 30s for txn TXN-44821
+2024-06-13T14:10:16Z ERROR payment-processor [proc] Processing timeout after 30s for txn TXN-44822
+2024-06-13T14:10:20Z ERROR payment-processor [proc] Dead letter queue threshold exceeded: 500 failed messages
+2024-06-13T14:10:25Z FATAL payment-processor [health] Liveness probe failed - pod marked unhealthy
+2024-06-13T14:10:30Z ERROR prometheus [alert] KafkaConsumerLagCritical: lag=215000 threshold=50000
+2024-06-13T14:10:30Z ERROR prometheus [alert] RedisDown: payment-processor cannot reach Redis
+2024-06-13T14:10:35Z ERROR pagerduty [oncall] P1 incident triggered - payment processing halted

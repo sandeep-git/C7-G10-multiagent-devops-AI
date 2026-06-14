@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+chroma_db/
+*.log
+!sample_logs/*.log
+node_modules/
+.next/
+.DS_Store
+frontend/

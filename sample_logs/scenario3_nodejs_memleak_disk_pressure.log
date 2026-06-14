@@ -1,0 +1,16 @@
+2024-06-13T22:00:00Z INFO  api-gateway [main] Node.js v18.12.0 started, pid=1234
+2024-06-13T22:15:44Z WARN  api-gateway [memory] RSS 312MB - growing steadily over last 15 min
+2024-06-13T22:30:11Z WARN  api-gateway [memory] RSS 489MB - event listener count: 8421 (expected <100)
+2024-06-13T22:31:00Z ERROR node [heap] Heap snapshot: 142,000 detached DOM/EventEmitter objects
+2024-06-13T22:35:22Z WARN  kubernetes [node-1] DiskPressure condition: True - /var/log at 94% capacity
+2024-06-13T22:35:23Z WARN  kubernetes [node-2] DiskPressure condition: True - /var/log at 91% capacity
+2024-06-13T22:35:30Z ERROR kubernetes [scheduler] Pod eviction triggered on node-1 due to DiskPressure
+2024-06-13T22:35:31Z ERROR kubernetes [scheduler] Pod eviction triggered on node-2 due to DiskPressure
+2024-06-13T22:36:00Z ERROR api-gateway [memory] RSS 721MB - approaching container limit of 768MB
+2024-06-13T22:36:45Z WARN  api-gateway [req] p99 latency: 4200ms (SLA threshold: 500ms)
+2024-06-13T22:37:01Z ERROR api-gateway [memory] FATAL ERROR: CALL_AND_RETRY_LAST Allocation failed - JavaScript heap out of memory
+2024-06-13T22:37:01Z FATAL kubernetes [kubelet] Container api-gateway OOMKilled (exit code 137)
+2024-06-13T22:37:10Z ERROR nginx [upstream] upstream timed out (110: Connection timed out) api-gateway:3000
+2024-06-13T22:37:15Z ERROR prometheus [alert] NodeDiskPressure: node-1, node-2 both evicting pods
+2024-06-13T22:37:15Z ERROR prometheus [alert] APIGatewayDown: all instances crashed simultaneously
+2024-06-13T22:37:20Z ERROR pagerduty [oncall] P0 incident - API Gateway completely unavailable
