@@ -97,12 +97,11 @@ def node_hitl_gate(state: dict) -> dict:
     s.messages.append("HITL: Awaiting human approval before triggering external systems...")
     _set(s.run_id, s.model_dump())
 
-    # Wait for human decision — blocks the pipeline thread, not the API thread
     event = _hitl_events.get(s.run_id)
     if event:
-        event.wait(timeout=3600)  # wait up to 1 hour
+        event.wait(timeout=3600)
 
-    # Read the decision that was written by the approve endpoint
+    # Read the decision written by the approve endpoint
     latest = _get(s.run_id)
     s = AgentState(**latest)
     return s.model_dump()
@@ -114,6 +113,11 @@ def node_jira(state: dict) -> dict:
     s.messages.append("Agent 4: Creating Jira ticket...")
     _set(s.run_id, s.model_dump())
     try:
+        # Guard: both log_analysis and runbook must be present
+        if not s.log_analysis:
+            raise ValueError("log_analysis is missing — Agent 1 may have failed")
+        if not s.runbook:
+            raise ValueError("runbook is missing — Agent 3 may have failed")
         result = run_jira_agent(s.log_analysis, s.runbook)
         s.jira_result = result
         s.external_links["jira"] = result.ticket_url or ""
@@ -131,6 +135,11 @@ def node_slack(state: dict) -> dict:
     s.messages.append("Agent 5: Sending Slack notification...")
     _set(s.run_id, s.model_dump())
     try:
+        # Guard: both log_analysis and runbook must be present
+        if not s.log_analysis:
+            raise ValueError("log_analysis is missing — Agent 1 may have failed")
+        if not s.runbook:
+            raise ValueError("runbook is missing — Agent 3 may have failed")
         # Pass jira_result so the Slack message includes ticket link + priority
         result = run_notification_agent(s.log_analysis, s.runbook, s.jira_result)
         s.slack_result = result
@@ -152,7 +161,7 @@ def node_end(state: dict) -> dict:
 
 
 # ------------------------------------------------------------------
-# Routing
+# Routing — stop pipeline on any error
 # ------------------------------------------------------------------
 
 def route_after_classifier(state: dict) -> Literal["remediation_agent", "end"]:
@@ -160,6 +169,20 @@ def route_after_classifier(state: dict) -> Literal["remediation_agent", "end"]:
     if s.error or (s.log_analysis and s.log_analysis.is_benign):
         return "end"
     return "remediation_agent"
+
+
+def route_after_remediation(state: dict) -> Literal["cookbook_synthesizer", "end"]:
+    s = AgentState(**state)
+    if s.error or not s.remediation_strategy:
+        return "end"
+    return "cookbook_synthesizer"
+
+
+def route_after_cookbook(state: dict) -> Literal["hitl_approval", "end"]:
+    s = AgentState(**state)
+    if s.error or not s.runbook:
+        return "end"
+    return "hitl_approval"
 
 
 def route_after_hitl(state: dict) -> Literal["jira_agent", "end"]:
@@ -170,7 +193,7 @@ def route_after_hitl(state: dict) -> Literal["jira_agent", "end"]:
 
 
 # ------------------------------------------------------------------
-# Build graph (no checkpointer needed — state lives in _states dict)
+# Build graph
 # ------------------------------------------------------------------
 
 def build_graph() -> StateGraph:
@@ -186,8 +209,10 @@ def build_graph() -> StateGraph:
     builder.set_entry_point("log_classifier")
     builder.add_conditional_edges("log_classifier", route_after_classifier,
                                    {"remediation_agent": "remediation_agent", "end": "end"})
-    builder.add_edge("remediation_agent",    "cookbook_synthesizer")
-    builder.add_edge("cookbook_synthesizer", "hitl_approval")
+    builder.add_conditional_edges("remediation_agent", route_after_remediation,
+                                   {"cookbook_synthesizer": "cookbook_synthesizer", "end": "end"})
+    builder.add_conditional_edges("cookbook_synthesizer", route_after_cookbook,
+                                   {"hitl_approval": "hitl_approval", "end": "end"})
     builder.add_conditional_edges("hitl_approval", route_after_hitl,
                                    {"jira_agent": "jira_agent", "end": "end"})
     builder.add_edge("jira_agent",           "notification_agent")
