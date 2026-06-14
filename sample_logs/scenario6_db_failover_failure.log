@@ -1,0 +1,21 @@
+2024-06-14T09:00:00Z INFO  payment-service [main] Service started, connecting to payment-gateway-v3
+2024-06-14T09:00:02Z INFO  payment-service [db] PostgreSQL primary connected, replication lag: 0ms
+2024-06-14T09:30:11Z INFO  ops [maintenance] Scheduled maintenance: PostgreSQL primary failover test
+2024-06-14T09:30:15Z INFO  postgres [replication] Initiating controlled failover to replica-2
+2024-06-14T09:30:16Z ERROR postgres [primary] Primary node shutting down for failover
+2024-06-14T09:30:17Z ERROR payment-service [db] Lost connection to PostgreSQL primary
+  at pg.Pool.connect(pool.js:145)
+  at PaymentRepository.findTransaction(payment-repo.js:67)
+2024-06-14T09:30:18Z ERROR payment-service [db] Failover in progress — all queries failing
+2024-06-14T09:30:19Z ERROR payment-service [tx] Transaction TXN-77821 failed: could not connect to server
+2024-06-14T09:30:19Z ERROR payment-service [tx] Transaction TXN-77822 failed: could not connect to server
+2024-06-14T09:30:20Z WARN  haproxy [backend] PostgreSQL primary removed from pool — health check failed
+2024-06-14T09:30:35Z ERROR postgres [replica-2] Promotion failed: WAL log gap detected (15,000 missing transactions)
+2024-06-14T09:30:35Z FATAL postgres [replica-2] Cannot promote — data consistency check failed
+2024-06-14T09:30:40Z ERROR postgres [replica-1] Attempting promotion as fallback replica
+2024-06-14T09:30:55Z ERROR payment-service [db] No available PostgreSQL node — connection pool exhausted
+2024-06-14T09:31:00Z ERROR api-gateway [req] 503 Service Unavailable — payment-service not responding
+2024-06-14T09:31:05Z ERROR prometheus [alert] PostgreSQLFailoverFailed: no healthy primary available
+2024-06-14T09:31:05Z ERROR prometheus [alert] PaymentServiceDown: 0 healthy instances
+2024-06-14T09:31:10Z FATAL ops [incident] Unplanned outage — failover procedure failed unexpectedly
+2024-06-14T09:31:15Z ERROR pagerduty [oncall] P0 incident — payment database failover failure, all transactions failing

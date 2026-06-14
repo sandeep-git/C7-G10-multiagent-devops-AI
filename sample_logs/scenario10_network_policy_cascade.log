@@ -1,0 +1,20 @@
+2024-06-14T20:00:00Z INFO  microservices [all] All 18 services healthy
+2024-06-14T20:00:01Z INFO  network [mesh] Inter-service latency p99: 12ms
+2024-06-14T20:15:00Z INFO  ops [network] Applying network policy update: tightening egress rules
+2024-06-14T20:15:05Z WARN  network [policy] NetworkPolicy update applied — verifying connectivity
+2024-06-14T20:15:10Z ERROR inventory-service [db] TCP connection to RDS refused: port 5432
+  ConnectionRefusedError: [Errno 111] Connection refused 10.0.2.45:5432
+2024-06-14T20:15:10Z ERROR inventory-service [cache] Redis connection refused: 10.0.3.12:6379
+2024-06-14T20:15:11Z ERROR order-service [inventory] Cannot reach inventory-service: dial tcp timeout
+2024-06-14T20:15:12Z ERROR order-service [req-5541] Order creation failed: inventory check unavailable
+2024-06-14T20:15:13Z ERROR shipping-service [order] Cannot reach order-service: connection refused
+2024-06-14T20:15:14Z ERROR notification-service [smtp] SMTP relay blocked: egress to port 587 denied
+2024-06-14T20:15:15Z ERROR notification-service [email] Failed to send 4,200 pending order confirmations
+2024-06-14T20:15:20Z ERROR payment-service [fraud] Fraud detection API unreachable: DNS resolution failed
+2024-06-14T20:15:25Z WARN  kubernetes [dns] CoreDNS resolution failures: external domains timing out
+2024-06-14T20:15:30Z ERROR api-gateway [req] Cascade failure — 14 downstream services unreachable
+2024-06-14T20:15:35Z ERROR prometheus [alert] NetworkPolicyMisconfiguration: 14 services blocked
+2024-06-14T20:15:35Z ERROR prometheus [alert] ServiceMeshCascadeFailure: cross-service calls failing
+2024-06-14T20:15:35Z ERROR prometheus [alert] ExternalEgressBlocked: SMTP, fraud-API, DNS all failing
+2024-06-14T20:15:40Z FATAL ops [incident] Network policy rollout caused cascade failure across all services
+2024-06-14T20:15:45Z ERROR pagerduty [oncall] P0 incident — network misconfiguration, entire platform degraded

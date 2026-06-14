@@ -1,0 +1,19 @@
+2024-06-14T03:00:00Z INFO  auth-service [main] Starting auth-service v2.3.1 on port 9090
+2024-06-14T03:00:01Z INFO  auth-service [db] Connected to MongoDB replica set rs0
+2024-06-14T03:15:22Z WARN  auth-service [jwt] JWT signing key rotation scheduled in 5 minutes
+2024-06-14T03:20:00Z INFO  auth-service [jwt] Rotating JWT signing keys...
+2024-06-14T03:20:01Z ERROR auth-service [jwt] Failed to load new signing key from vault: connection timeout
+  at vault.client.getSecret(vault.js:234)
+  at JWTKeyManager.rotate(jwt-manager.js:89)
+2024-06-14T03:20:01Z ERROR auth-service [jwt] Key rotation failed — continuing with expired key
+2024-06-14T03:20:05Z ERROR api-gateway [auth] JWT validation failed for 1,204 concurrent requests
+2024-06-14T03:20:05Z ERROR api-gateway [auth] 401 Unauthorized — token signature verification failed
+2024-06-14T03:20:06Z ERROR user-service [req-9921] Authentication rejected: invalid JWT signature
+2024-06-14T03:20:06Z ERROR user-service [req-9922] Authentication rejected: invalid JWT signature
+2024-06-14T03:20:07Z ERROR checkout-service [req-4481] User session invalidated mid-transaction
+2024-06-14T03:20:08Z ERROR checkout-service [req-4482] Cart data lost — session expired unexpectedly
+2024-06-14T03:20:10Z WARN  nginx [rate-limit] Spike detected: 8,400 req/s (threshold: 2,000 req/s)
+2024-06-14T03:20:15Z ERROR prometheus [alert] AuthServiceJWTFailureRate: 98% failure rate
+2024-06-14T03:20:15Z ERROR prometheus [alert] UserSessionInvalidations: 1200/min (threshold: 10/min)
+2024-06-14T03:20:20Z FATAL auth-service [health] Liveness probe failed — pod restarting
+2024-06-14T03:20:25Z ERROR pagerduty [oncall] P0 incident — complete authentication outage

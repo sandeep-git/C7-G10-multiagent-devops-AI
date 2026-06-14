@@ -1,0 +1,20 @@
+2024-06-14T06:00:00Z INFO  ml-inference [main] Model server started, loaded model: recommendation-v4.2
+2024-06-14T06:00:01Z INFO  ml-inference [gpu] CUDA device detected: Tesla T4, 16GB VRAM
+2024-06-14T06:05:10Z WARN  ml-inference [gpu] GPU memory utilization at 78% (12.5GB/16GB)
+2024-06-14T06:10:22Z WARN  ml-inference [gpu] GPU memory utilization at 91% (14.6GB/16GB)
+2024-06-14T06:12:44Z ERROR ml-inference [gpu] CUDA out of memory: tried to allocate 2.4GB
+  RuntimeError: CUDA out of memory. Tried to allocate 2.40 GiB
+  at torch.nn.functional.linear(functional.py:1848)
+  at RecommendationModel.forward(model.py:312)
+2024-06-14T06:12:44Z ERROR ml-inference [req] Inference request failed for user_id=88821 — OOM
+2024-06-14T06:12:45Z ERROR ml-inference [req] Inference request failed for user_id=88822 — OOM
+2024-06-14T06:12:45Z ERROR ml-inference [req] Inference request failed for user_id=88823 — OOM
+2024-06-14T06:12:50Z ERROR product-service [rec] Recommendation engine unavailable — falling back to static list
+2024-06-14T06:13:00Z WARN  ml-inference [batch] Batch queue depth: 4,200 requests (threshold: 500)
+2024-06-14T06:13:10Z ERROR ml-inference [gpu] GPU process killed by SIGKILL — driver crash
+2024-06-14T06:13:11Z ERROR ml-inference [health] GPU health check failed — device not responding
+2024-06-14T06:13:15Z WARN  kubernetes [node-gpu-1] GPU node taint added: nvidia.com/gpu=crashed:NoSchedule
+2024-06-14T06:13:20Z ERROR product-service [rec] 100% recommendation requests failing — degraded UX
+2024-06-14T06:13:25Z ERROR prometheus [alert] MLInferenceGPUCrash: device unavailable
+2024-06-14T06:13:25Z ERROR prometheus [alert] RecommendationEngineDown: fallback active
+2024-06-14T06:13:30Z ERROR pagerduty [oncall] P1 incident — ML inference GPU crash, degraded recommendations

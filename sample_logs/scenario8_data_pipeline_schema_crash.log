@@ -1,0 +1,20 @@
+2024-06-14T14:00:00Z INFO  data-pipeline [main] Spark streaming job started, consuming from Kinesis
+2024-06-14T14:00:02Z INFO  data-pipeline [s3] S3 output bucket connected: s3://analytics-prod-warehouse
+2024-06-14T14:00:05Z INFO  data-pipeline [schema] Schema registry connected, 128 schemas loaded
+2024-06-14T14:30:00Z INFO  ops [schema] Schema update deployed: user-events-v8 → v9 (added 3 fields)
+2024-06-14T14:30:01Z ERROR data-pipeline [schema] Schema evolution failed: incompatible change detected
+  org.apache.avro.SchemaParseException: can't redefine: user_metadata
+  at SchemaRegistry.validate(registry.py:189)
+2024-06-14T14:30:02Z ERROR data-pipeline [stream] Deserialization failed for partition-0 offset 8,821,442
+2024-06-14T14:30:02Z ERROR data-pipeline [stream] Deserialization failed for partition-1 offset 7,234,891
+2024-06-14T14:30:03Z ERROR data-pipeline [stream] Consumer group lag growing: 45,000 events behind
+2024-06-14T14:30:05Z WARN  data-pipeline [checkpoint] Checkpoint save failed — state store corrupted
+2024-06-14T14:30:10Z ERROR data-pipeline [s3] S3 write failed: schema mismatch in parquet output
+  pyarrow.lib.ArrowInvalid: Column user_metadata expected type STRING, got STRUCT
+2024-06-14T14:30:15Z ERROR data-pipeline [dead-letter] DLQ threshold exceeded: 12,000 failed events
+2024-06-14T14:30:20Z FATAL data-pipeline [job] Spark job terminated — unrecoverable schema error
+2024-06-14T14:30:25Z ERROR analytics-service [query] Dashboards returning stale data — pipeline offline
+2024-06-14T14:30:30Z ERROR prometheus [alert] DataPipelineDown: Spark job crashed
+2024-06-14T14:30:30Z ERROR prometheus [alert] SchemaRegistryConflict: breaking change in user-events-v9
+2024-06-14T14:30:35Z ERROR prometheus [alert] AnalyticsDashboardStale: data 30+ minutes behind
+2024-06-14T14:30:40Z ERROR pagerduty [oncall] P1 incident — data pipeline crash, analytics offline

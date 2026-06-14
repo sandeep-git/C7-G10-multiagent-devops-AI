@@ -1,0 +1,22 @@
+2024-06-14T11:00:00Z INFO  microservices [mesh] Istio service mesh healthy — 42 services registered
+2024-06-14T11:00:01Z INFO  config-service [main] ConfigMap watcher started
+2024-06-14T11:45:00Z INFO  ops [deploy] Rolling deployment started: api-gateway v3.1.2 → v3.2.0
+2024-06-14T11:45:10Z INFO  kubernetes [deploy] api-gateway: 1/5 pods updated
+2024-06-14T11:45:25Z INFO  kubernetes [deploy] api-gateway: 2/5 pods updated
+2024-06-14T11:45:40Z WARN  api-gateway [startup] v3.2.0 taking longer than expected to pass readiness probe
+2024-06-14T11:46:00Z ERROR api-gateway [startup] Readiness probe failed: GET /health returned 500
+  Error: Cannot read property 'endpoint' of undefined
+  at ConfigLoader.load(config-loader.js:45)
+  at APIGateway.init(gateway.js:23)
+2024-06-14T11:46:01Z ERROR kubernetes [deploy] Pod api-gateway-v3.2.0-6f8d failing readiness — not adding to service
+2024-06-14T11:46:10Z WARN  kubernetes [deploy] Deployment stalled — new pods failing readiness probe
+2024-06-14T11:46:15Z ERROR config-service [cm] ConfigMap api-gateway-config missing key: upstream_endpoints
+2024-06-14T11:46:15Z ERROR config-service [cm] ConfigMap was overwritten during deploy — 3 keys missing
+2024-06-14T11:46:20Z ERROR api-gateway [req] 50% of requests hitting old pods — latency spike 3200ms
+2024-06-14T11:46:25Z ERROR istio [circuit] Circuit breaker OPEN for api-gateway-v3.2.0
+2024-06-14T11:46:30Z ERROR nginx [upstream] Upstream api-gateway returning 500 on 48% of requests
+2024-06-14T11:46:35Z WARN  kubernetes [hpa] HPA cannot scale — deployment in failed state
+2024-06-14T11:46:40Z ERROR prometheus [alert] DeploymentRolloutStalled: api-gateway stuck at 2/5 pods
+2024-06-14T11:46:40Z ERROR prometheus [alert] APIGatewayErrorRate: 48% 5xx errors
+2024-06-14T11:46:45Z ERROR prometheus [alert] ConfigMapMissing: api-gateway-config incomplete
+2024-06-14T11:46:50Z ERROR pagerduty [oncall] P1 incident — bad deployment causing partial API outage
